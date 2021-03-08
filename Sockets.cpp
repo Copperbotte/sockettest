@@ -3,7 +3,6 @@
 
 // following this tutorial:
 // https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-basic-winsock-application
-// https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-socket-for-the-server
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -21,6 +20,7 @@ using namespace std;
 
 int server(WSADATA& wsaData)
 {
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-socket-for-the-server
     addrinfo* result = nullptr;
     addrinfo* ptr = nullptr;
     addrinfo hints;
@@ -39,12 +39,9 @@ int server(WSADATA& wsaData)
         return 1;
     }
 
+    // setup tcp listen socket
     SOCKET ListenSocket = INVALID_SOCKET;
-
     ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-
-    // check for errors
-
     if (ListenSocket == INVALID_SOCKET)
     {
         printf("Error at socket(): %1d\n", WSAGetLastError());
@@ -53,10 +50,68 @@ int server(WSADATA& wsaData)
         return 1;
     }
 
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/binding-a-socket
+    // bind socket to network address
+    iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+    if(iResult == SOCKET_ERROR)
+    {
+        printf("bind failed with error: %1d\n", WSAGetLastError());
+        freeaddrinfo(result);
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
 
+    // addrinfo is only needed for bind
     freeaddrinfo(result);
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/listening-on-a-socket
+
+    if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR)
+    {
+        printf("Listen failed with error: %1d\n", WSAGetLastError());
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/accepting-a-connection
+    SOCKET ClientSocket = INVALID_SOCKET;
+
+    // accept client socket
+    // program will wait here until a valid connection appears
+    ClientSocket = accept(ListenSocket, NULL, NULL);
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        printf("accept failed: %d\n", WSAGetLastError());
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // No longer need to listen for more connections
+    closesocket(ListenSocket); 
+
+    printf("connection found\n");
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/receiving-and-sending-data-on-the-server
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-server
+
+    iResult = shutdown(ClientSocket, SD_SEND); // sends a shutdown command to the client
+    if (iResult == SOCKET_ERROR)
+    {
+        printf("shutdown failed: %d\n", WSAGetLastError());
+        closesocket(ClientSocket);
+        WSACleanup();
+        return 1;
+    }
+
+
+    closesocket(ClientSocket);
     WSACleanup();
 
+    return 0;
 }
 
 int main()
