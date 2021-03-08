@@ -3,6 +3,7 @@
 
 // following this tutorial:
 // https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-basic-winsock-application
+// https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-socket-for-the-server
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -18,6 +19,46 @@
 
 using namespace std;
 
+int server(WSADATA& wsaData)
+{
+    addrinfo* result = nullptr;
+    addrinfo* ptr = nullptr;
+    addrinfo hints;
+
+    ZeroMemory(&hints, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_flags = AI_PASSIVE;
+
+    int iResult = getaddrinfo(NULL, "27015", &hints, &result);
+    if (iResult != 0)
+    {
+        printf("getaddrinfo failed: %d\n", iResult);
+        WSACleanup();
+        return 1;
+    }
+
+    SOCKET ListenSocket = INVALID_SOCKET;
+
+    ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+
+    // check for errors
+
+    if (ListenSocket == INVALID_SOCKET)
+    {
+        printf("Error at socket(): %1d\n", WSAGetLastError());
+        freeaddrinfo(result);
+        WSACleanup();
+        return 1;
+    }
+
+
+    freeaddrinfo(result);
+    WSACleanup();
+
+}
+
 int main()
 {
     int iResult = 0;
@@ -31,7 +72,9 @@ int main()
         return 1;
     }
 
+    return server(wsaData);
 
+    WSACleanup();
 
     return 0;
 }
