@@ -9,6 +9,7 @@
 #endif
 
 #include <iostream>
+#include <string>
 
 #include <winsock2.h> // sockets
 #include <WS2tcpip.h> // winsock 2 tcpip?
@@ -66,7 +67,6 @@ int server(WSADATA& wsaData)
     freeaddrinfo(result);
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/listening-on-a-socket
-
     if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR)
     {
         printf("Listen failed with error: %1d\n", WSAGetLastError());
@@ -80,6 +80,7 @@ int server(WSADATA& wsaData)
 
     // accept client socket
     // program will wait here until a valid connection appears
+    printf("listening for connection\n");
     ClientSocket = accept(ListenSocket, NULL, NULL);
     if (ClientSocket == INVALID_SOCKET)
     {
@@ -114,6 +115,78 @@ int server(WSADATA& wsaData)
     return 0;
 }
 
+int client(WSADATA& wsaData)
+{
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-socket-for-the-client
+    addrinfo* result = nullptr;
+    addrinfo* ptr = nullptr;
+    addrinfo hints;
+
+    ZeroMemory(&hints, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    printf("Enter an address:\n");
+    string s = "127.0.0.1";
+    cin >> s;
+
+    int iResult = getaddrinfo(s.c_str(), "27015", &hints, &result);
+    if (iResult != 0)
+    {
+        printf("getaddrinfo failed: %d\n", iResult);
+        WSACleanup();
+        return 1;
+    }
+
+    // setup tcp listen socket
+    SOCKET ConnectSocket = INVALID_SOCKET;
+    ConnectSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (ConnectSocket == INVALID_SOCKET)
+    {
+        printf("Error at socket(): %1d\n", WSAGetLastError());
+        freeaddrinfo(result);
+        WSACleanup();
+        return 1;
+    }
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/connecting-to-a-socket
+    // connect to server
+    iResult = connect(ConnectSocket, result->ai_addr, result->ai_addrlen);
+    if (iResult == SOCKET_ERROR)
+    {
+        closesocket(ConnectSocket);
+        ConnectSocket = INVALID_SOCKET;
+    }
+
+    //addrinfo is no longer needed
+    freeaddrinfo(result);
+    if (ConnectSocket == INVALID_SOCKET)
+    {
+        printf("Unable to connect to server!\n");
+        WSACleanup();
+        return 1;
+    }
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/sending-and-receiving-data-on-the-client
+
+    // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-client
+    // send shutdown message
+    iResult = shutdown(ConnectSocket, SD_SEND);
+    if (iResult == SOCKET_ERROR)
+    {
+        printf("shutdown failed: %d\n", WSAGetLastError());
+        closesocket(ConnectSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    closesocket(ConnectSocket);
+    WSACleanup();
+
+    return 0;
+}
+
 int main()
 {
     int iResult = 0;
@@ -127,6 +200,12 @@ int main()
         return 1;
     }
 
+    int n = 0;
+    printf("type 0 for client, 1 for server:\n");
+    cin >> n;
+
+    if(n == 0)
+        return client(wsaData);
     return server(wsaData);
 
     WSACleanup();
