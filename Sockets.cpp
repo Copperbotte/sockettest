@@ -93,10 +93,102 @@ int server(WSADATA& wsaData)
     // https://docs.microsoft.com/en-us/windows/win32/winsock/accepting-a-connection
     SOCKET ClientSocket = INVALID_SOCKET;
 
-    // accept client socket
-    // program will wait here until a valid connection appears
-    printf("listening for connection\n");
-    ClientSocket = accept(ListenSocket, NULL, NULL);
+    // While a user hasn't sent the /shutdown command:
+    // check for new connections and messages
+    // on new connection:
+    //    create the new connection, add the socket to the socket array
+    // on new message
+    //    echo message to all connected clients
+    // on socket connection terminated
+    //    remove from socket array, push all other sockets back one?
+    //        maybe use a linked list instead
+
+    printf("Waiting for a new connection\n");
+    
+    int connections = 0;
+
+    fd_set ls;
+    ls.fd_count = 1;
+    ls.fd_array[0] = ListenSocket;
+
+    fd_set cs;
+    cs.fd_count = 0;
+
+    fd_set ms;
+    cs.fd_count = 0;
+
+    timeval time;
+    time.tv_sec = 1;
+    time.tv_usec = 0;
+
+    while (true)
+    {
+        //check for new connections
+        ls.fd_count = 1; // always update the listen socket
+        iResult = select(ls.fd_count, &ls, 0, 0, &time); // final null is blocking
+        //printf("%d\n", iResult);
+        if (iResult == SOCKET_ERROR)
+        {
+
+            printf("select failed with error: %1d\n", WSAGetLastError());
+            closesocket(ListenSocket);
+            WSACleanup();
+            return 1;
+        }
+
+        //establish connections
+        if (0 < iResult)
+        {
+            for (int i = 0; i < iResult; ++i)
+                cs.fd_array[connections + i] = accept(ListenSocket, NULL, NULL);
+            memcpy(ms.fd_array, cs.fd_array, sizeof(SOCKET*) * 64);
+            connections += iResult;
+            printf("Found %d new connections.", iResult);
+        }
+
+        if (connections == 0)
+            continue;
+
+        //check for new messages
+        ms.fd_count = connections; // always update the listen socket
+        iResult = select(ms.fd_count, &ms, 0, 0, &time); // final null is blocking
+        if (iResult == SOCKET_ERROR)
+        {
+
+            printf("select failed with error: %1d\n", WSAGetLastError());
+            closesocket(ListenSocket);
+            WSACleanup();
+            return 1;
+        }
+
+        if (iResult == 0)
+            continue;
+        //printf("%d connections ", connections);
+        //printf("%d new messages\n", iResult);
+
+        //parse messages and echo them out to all other connected clients
+        const int recvBufferLen = 1024;
+        char recvBuffer[recvBufferLen];
+        
+        for (int i = 0; i < iResult; ++i)
+        {
+            //recieve message
+            recv(ms.fd_array[i], recvBuffer, recvBufferLen, 0);
+            printf("%s\n", recvBuffer);
+
+            //printf("recieved from connection %d\n", i);
+
+            //echo for everyone else
+            for (int j = 0; j < connections; ++j)
+            {
+                if (ms.fd_array[i] == cs.fd_array[j])
+                    continue; // dont echo the message
+                send(cs.fd_array[j], recvBuffer, recvBufferLen, 0);
+            }
+        }
+    }
+
+    //ClientSocket = accept(ListenSocket, NULL, NULL);
     if (ClientSocket == INVALID_SOCKET)
     {
         printf("accept failed: %d\n", WSAGetLastError());
@@ -112,7 +204,7 @@ int server(WSADATA& wsaData)
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/receiving-and-sending-data-on-the-server
 
-    socketChat(ClientSocket);
+    //socketChat(ClientSocket);
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-server
 
@@ -187,7 +279,56 @@ int client(WSADATA& wsaData)
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/sending-and-receiving-data-on-the-client
 
-    socketChat(ConnectSocket);
+    //socketChat(ConnectSocket);
+
+    const int recvBufferLen = 1024;
+    char recvBuffer[recvBufferLen];
+
+    while (true)
+    {
+        //check if we recieved any messages
+        fd_set ls;
+        ls.fd_count = 1;
+        ls.fd_array[0] = ConnectSocket;
+
+        timeval time;
+        time.tv_sec = 1;
+        time.tv_usec = 0;
+
+        iResult = select(ls.fd_count, &ls, 0, 0, &time); // final null is blocking
+        if (iResult == SOCKET_ERROR)
+        {
+            printf("select failed with error: %1d\n", WSAGetLastError());
+            closesocket(ConnectSocket);
+            WSACleanup();
+            return 1;
+        }
+
+        //new messages!!!!
+        if (0 < iResult)
+        {
+            for (int i = 0; i < ls.fd_count; ++i)
+            {
+                recv(ls.fd_array[i], recvBuffer, recvBufferLen, 0);
+                printf("%s\n", recvBuffer);
+            }
+        }
+
+        if (GetKeyState(VK_SPACE) & 0x8000)
+        {
+            printf("Send somethin!\n>>> ");
+            s = "";
+            cin >> s;
+            s += '\0';
+            send(ConnectSocket, s.c_str(), s.length(), 0);
+        }
+        
+    }
+
+    //recieve message
+    recv(ConnectSocket, recvBuffer, recvBufferLen, 0);
+    printf(recvBuffer);
+
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-client
     // send shutdown message
