@@ -19,6 +19,21 @@
 
 using namespace std;
 
+// https://stackoverflow.com/questions/10353017/c-win-async-sockets-is-it-possible-to-interrupt-select
+
+int socketChat(SOCKET& Socket)
+{
+    const int recvBufferLen = 1024;
+    char recvBuffer[recvBufferLen];
+    
+    int iResult = 0;
+
+    iResult = recv(Socket, recvBuffer, recvBufferLen, 0);
+    iResult = send(Socket, recvBuffer, recvBufferLen, 0); 
+
+    return 0;
+}
+
 int server(WSADATA& wsaData)
 {
     // https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-socket-for-the-server
@@ -97,6 +112,8 @@ int server(WSADATA& wsaData)
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/receiving-and-sending-data-on-the-server
 
+    socketChat(ClientSocket);
+
     // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-server
 
     iResult = shutdown(ClientSocket, SD_SEND); // sends a shutdown command to the client
@@ -169,6 +186,8 @@ int client(WSADATA& wsaData)
     }
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/sending-and-receiving-data-on-the-client
+
+    socketChat(ConnectSocket);
 
     // https://docs.microsoft.com/en-us/windows/win32/winsock/disconnecting-the-client
     // send shutdown message
