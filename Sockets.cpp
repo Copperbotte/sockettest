@@ -1,14 +1,38 @@
 // Sockets.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+// following this tutorial:
+// https://docs.microsoft.com/en-us/windows/win32/winsock/creating-a-basic-winsock-application
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <iostream>
+
+#include <winsock2.h> // sockets
+#include <WS2tcpip.h> // winsock 2 tcpip?
+#include <iphlpapi.h> // ip help api? // lean and mean
+
+#pragma comment(lib, "Ws2_32.lib")
 
 using namespace std;
 
 int main()
 {
-    cout << "Hello World!\n";
-    
+    int iResult = 0;
+
+    //initialize winsock
+    WSADATA wsaData;
+    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (iResult != 0)
+    {
+        printf("WSAStartup Failed: %d\n", iResult);
+        return 1;
+    }
+
+
+
     return 0;
 }
 
